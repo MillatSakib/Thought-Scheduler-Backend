@@ -23,8 +23,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://petconnect0.netlify.app",
-      "https://petconnect0aaaa.netlify.app",
+      "https://thought-scheduler.netlify.app",
     ],
     credentials: true,
   })
@@ -33,21 +32,19 @@ app.use(express.json());
 
 const jwtEmail = (token) => {
   try {
-    const decoded = jwt.verify(token.token, process.env.Access_Token_Secret);
+    const decoded = jwt.verify(token, process.env.Access_Token_Secret);
     return decoded.email;
   } catch (error) {
     return null;
   }
 };
 
-const jwtUserId = (token) => {
-  try {
-    const decoded = jwt.verify(token.token, process.env.Access_Token_Secret);
-    return decoded.uid;
-  } catch (error) {
-    return null;
-  }
-};
+function generateAccessToken(email) {
+  const token = jwt.sign({ email }, process.env.Access_Token_Secret, {
+    expiresIn: "720h",
+  });
+  return token;
+}
 
 app.get("/", (req, res) => {
   res.send("Server Up & Running");
@@ -55,33 +52,66 @@ app.get("/", (req, res) => {
 
 async function run() {
   try {
-    const userCollection = client.db("petAdoption").collection("users");
-    const workListCollection = client.db("petAdoption").collection("allPets");
+    const userCollection = client.db("thought-scheduler").collection("users");
+    const workListCollection = client
+      .db("thought-scheduler")
+      .collection("workList");
 
-    const errorCase = async (apiRoute, cookie, message) => {
-      const errorData = {
-        userEmail: jwtEmail(cookie),
-        userUid: jwtUserId(cookie),
-        errorMessage: message,
-        time: Date.now(),
-        api: apiRoute,
-      };
-      await apiError.insertOne(errorData);
-    };
-    const publicErrorCase = async (apiRoute, message) => {
-      const errorData = {
-        userEmail: anonymous,
-        userUid: anonymous,
-        errorMessage: message,
-        time: Date.now(),
-        api: apiRoute,
-      };
-      await apiError.insertOne(errorData);
-    };
-
-    app.get("/getworklist", async (req, res) => {
+    app.post("/addthought", async (req, res) => {
       try {
-        res.send("Tested Successfully");
+        const data = req.body;
+        const email = jwtEmail(data.token);
+        if (email !== data.data.email) {
+          return res.status(403).send({ Access: "Forbidden Access" });
+        }
+        const result = await workListCollection.insertOne(data.data);
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send("Internal Server Error!");
+      }
+    });
+
+    app.post("/signup", async (req, res) => {
+      try {
+        const data = req.body;
+        const token = generateAccessToken(data.email);
+        const existingUser = await userCollection.findOne({
+          email: data.email,
+        });
+        if (existingUser) {
+          return res.send({ message: "User already exists", token });
+        }
+        const result = await userCollection.insertOne(data);
+        res.send({ result, token });
+      } catch (error) {
+        res.status(500).send("Internal Server Error!");
+      }
+    });
+
+    app.post("/login", async (req, res) => {
+      try {
+        const data = req.body;
+        const user = await userCollection.findOne({ email: data.email });
+        if (!user || user.password !== data.password) {
+          return res.status(401).send({ message: "Invalid credentials" });
+        }
+        const token = generateAccessToken(data.email);
+        res.send({ message: "Login successful", token });
+      } catch (error) {
+        res.status(500).send("Internal Server Error!");
+      }
+    });
+
+    app.get("/mythoughts", async (req, res) => {
+      try {
+        const email = jwtEmail(req.headers.authorization);
+        if (!email) {
+          return res.status(403).send({ Access: "Forbidden Access" });
+        }
+        const query = { email: email };
+        const result = await workListCollection.find(query).toArray();
+        res.send(result);
       } catch (error) {
         res.status(500).send("Internal Server Error!");
       }
