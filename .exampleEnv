@@ -1,0 +1,4 @@
+DB_USER=NameOFMongodbUser
+DB_PASS=PasswordOFMongodb
+JWT_Access_Token_Secret=PutHereJWtToken
+Frontend_URL=thisIsFrontEndURLWithoutBackSlashAtLast

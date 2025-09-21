@@ -23,7 +23,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://thought-scheduler.netlify.app",
+      process.env.Frontend_URL,
     ],
     credentials: true,
   })
@@ -32,7 +32,7 @@ app.use(express.json());
 
 const jwtEmail = (token) => {
   try {
-    const decoded = jwt.verify(token, process.env.Access_Token_Secret);
+    const decoded = jwt.verify(token, process.env.JWT_Access_Token_Secret);
     return decoded.email;
   } catch (error) {
     return null;
@@ -40,7 +40,7 @@ const jwtEmail = (token) => {
 };
 
 function generateAccessToken(email) {
-  const token = jwt.sign({ email }, process.env.Access_Token_Secret, {
+  const token = jwt.sign({ email }, process.env.JWT_Access_Token_Secret, {
     expiresIn: "720h",
   });
   return token;
