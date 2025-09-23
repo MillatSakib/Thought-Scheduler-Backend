@@ -64,7 +64,10 @@ async function run() {
         if (email !== data.data.email) {
           return res.status(403).send({ Access: "Forbidden Access" });
         }
-        const result = await workListCollection.insertOne(data.data);
+        const result = await workListCollection.insertOne({
+          ...data.data,
+          done: false,
+        });
 
         res.send(result);
       } catch (error) {
@@ -109,9 +112,63 @@ async function run() {
         if (!email) {
           return res.status(403).send({ Access: "Forbidden Access" });
         }
-        const query = { email: email };
+        const query = { email: email, done: false };
         const result = await workListCollection.find(query).toArray();
         res.send(result);
+      } catch (error) {
+        res.status(500).send("Internal Server Error!");
+      }
+    });
+
+    app.get("/completedTask", async (req, res) => {
+      try {
+        const email = jwtEmail(req.headers.authorization);
+        if (!email) {
+          return res.status(403).send({ Access: "Forbidden Access" });
+        }
+        const query = { email: email, done: true };
+        const result = await workListCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send("Internal Server Error!");
+      }
+    });
+
+    app.patch("/updatethought/:id", async (req, res) => {
+      try {
+        const email = jwtEmail(req.headers.authorization);
+        if (!email) {
+          return res.status(403).send({ Access: "Forbidden Access" });
+        }
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id), email: email };
+        const result = await workListCollection.updateOne(query, {
+          $set: { done: true, completedAt: new Date() },
+        });
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "Thought not found" });
+        }
+        res.send({ message: "Thought updated successfully" });
+      } catch (error) {
+        res.status(500).send("Internal Server Error!");
+      }
+    });
+
+    app.patch("/removeFromComplete/:id", async (req, res) => {
+      try {
+        const email = jwtEmail(req.headers.authorization);
+        if (!email) {
+          return res.status(403).send({ Access: "Forbidden Access" });
+        }
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id), email: email };
+        const result = await workListCollection.updateOne(query, {
+          $set: { done: false, completedAt: null },
+        });
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "Thought not found" });
+        }
+        res.send({ message: "Thought updated successfully" });
       } catch (error) {
         res.status(500).send("Internal Server Error!");
       }
