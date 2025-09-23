@@ -154,6 +154,24 @@ async function run() {
       }
     });
 
+    app.get("/thought/:priority", async (req, res) => {
+      try {
+        const email = jwtEmail(req.headers.authorization);
+        if (!email) {
+          return res.status(403).send({ Access: "Forbidden Access" });
+        }
+        const priority = req.params.priority;
+        let query = { email: email, done: false };
+        if (priority !== "All") {
+          query.priority = priority;
+        }
+        const thoughts = await workListCollection.find(query).toArray();
+        res.send({ thoughts });
+      } catch (error) {
+        res.status(500).send("Internal Server Error!");
+      }
+    });
+
     app.patch("/removeFromComplete/:id", async (req, res) => {
       try {
         const email = jwtEmail(req.headers.authorization);
